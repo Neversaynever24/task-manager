@@ -1,35 +1,45 @@
 package org.example.taskmanager;
 
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
+
+import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Slf4j
 @Service
+
 public class TaskManagerService {
 
     private final Map<Long, Task> tasksMap;
     private final AtomicLong idCounter;
 
-    public TaskManagerService() {
+    private final TaskRepository taskRepository;
+
+    public TaskManagerService(TaskRepository taskRepository) {
+        this.taskRepository = taskRepository;
         tasksMap = new HashMap<>();
         idCounter = new AtomicLong();
     }
 
     public List<Task> findAllTasks() {
-        return tasksMap.values().stream().toList();
+        List<TaskEntity> allTaskEntities = taskRepository.findAll();
+
+        List<Task> tasksList = allTaskEntities.stream()
+                .map(it -> toDomainTask(it))
+                .toList();
+
+        return tasksList;
     }
 
     public Task getTaskById(Long taskId) {
-        if (!tasksMap.containsKey(taskId)) {
-            throw new NoSuchElementException("Not found task by id = " + taskId);
-        }
-        return tasksMap.get(taskId);
+        TaskEntity taskEntity = taskRepository.findById(taskId)
+                .orElseThrow(() -> new EntityNotFoundException("Not found task by id = " + taskId
+                ));
+
+        return toDomainTask(taskEntity);
     }
 
     public Task createTask(Task taskToCreate) {
@@ -42,7 +52,7 @@ public class TaskManagerService {
         }
 
         var createdTask = Task.builder()
-                .taskId(idCounter.getAndIncrement())
+                .taskId(idCounter.incrementAndGet())
                 .creatorId(taskToCreate.getCreatorId())
                 .assignedUserId(taskToCreate.getAssignedUserId())
                 .status(TaskStatus.CREATED)
@@ -85,5 +95,17 @@ public class TaskManagerService {
         }
 
         tasksMap.remove(taskId);
+    }
+
+    private Task toDomainTask(TaskEntity taskEntity) {
+        return Task.builder()
+                .taskId(taskEntity.getTaskId())
+                .creatorId(taskEntity.getCreatorId())
+                .assignedUserId(taskEntity.getAssignedUserId())
+                .status(taskEntity.getStatus())
+                .createDateTime(taskEntity.getCreateDateTime())
+                .deadlineDateTime(taskEntity.getDeadlineDateTime())
+                .priority(taskEntity.getPriority())
+                .build();
     }
 }
