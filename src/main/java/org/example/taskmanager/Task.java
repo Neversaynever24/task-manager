@@ -1,14 +1,17 @@
 package org.example.taskmanager;
 
-import java.time.LocalDate;
+import lombok.Builder;
+import lombok.Value;
 import java.time.LocalDateTime;
 
-public record Task (
-    Long taskId,
-    Long creatorId,
-    Long assignedUserId,
-    TaskStatus status,
-    LocalDateTime createDateTime,
-    LocalDateTime deadlineDateTime,
-    TaskPriority priority
-) {}
+@Value
+@Builder
+public class Task {
+    Long taskId;
+    Long creatorId;
+    Long assignedUserId;
+    TaskStatus status;
+    LocalDateTime createDateTime;
+    LocalDateTime deadlineDateTime;
+    TaskPriority priority;
+}

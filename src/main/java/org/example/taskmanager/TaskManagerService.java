@@ -1,15 +1,15 @@
 package org.example.taskmanager;
 
-import org.springframework.http.ResponseEntity;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-
-import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.atomic.AtomicLong;
 
+@Slf4j
 @Service
 public class TaskManagerService {
 
@@ -33,25 +33,25 @@ public class TaskManagerService {
     }
 
     public Task createTask(Task taskToCreate) {
-        if (taskToCreate.taskId() != null) {
-            throw new NoSuchElementException("TaskId must be empty, taskId: " + taskToCreate.taskId());
+        if (taskToCreate.getTaskId() != null) {
+            throw new NoSuchElementException("TaskId must be empty, taskId: " + taskToCreate.getTaskId());
         }
 
-        if (taskToCreate.status() != null) {
-            throw new NoSuchElementException("TaskStatus must be empty, taskStatus" + taskToCreate.status());
+        if (taskToCreate.getStatus() != null) {
+            throw new NoSuchElementException("TaskStatus must be empty, taskStatus" + taskToCreate.getStatus());
         }
 
-        var createdTask = new Task(
-                idCounter.incrementAndGet(),
-                taskToCreate.creatorId(),
-                taskToCreate.assignedUserId(),
-                TaskStatus.CREATED,
-                taskToCreate.createDateTime(),
-                taskToCreate.deadlineDateTime(),
-                taskToCreate.priority()
-        );
+        var createdTask = Task.builder()
+                .taskId(idCounter.getAndIncrement())
+                .creatorId(taskToCreate.getCreatorId())
+                .assignedUserId(taskToCreate.getAssignedUserId())
+                .status(TaskStatus.CREATED)
+                .createDateTime(taskToCreate.getCreateDateTime())
+                .deadlineDateTime(taskToCreate.getDeadlineDateTime())
+                .priority(taskToCreate.getPriority())
+                .build();
 
-        tasksMap.put(createdTask.taskId(), createdTask);
+        tasksMap.put(createdTask.getTaskId(), createdTask);
         return createdTask;
     }
 
@@ -60,22 +60,23 @@ public class TaskManagerService {
             throw new NoSuchElementException("Not found task by id = " + taskId);
         }
 
-        if (taskToUpdate.status().equals(TaskStatus.DONE)) {
+        if (taskToUpdate.getStatus().equals(TaskStatus.DONE)) {
             throw new IllegalStateException("TaskStatus should not be DONE");
         }
 
         var oldTask = tasksMap.get(taskId);
-        var updatedTask = new Task(
-                oldTask.taskId(),
-                taskToUpdate.creatorId(),
-                taskToUpdate.assignedUserId(),
-                taskToUpdate.status(),
-                taskToUpdate.createDateTime(),
-                taskToUpdate.deadlineDateTime(),
-                taskToUpdate.priority()
-        );
-        tasksMap.put(taskId, updatedTask);
-        return updatedTask;
+        var createdTask = Task.builder()
+                .taskId(oldTask.getTaskId())
+                .creatorId(taskToUpdate.getCreatorId())
+                .assignedUserId(taskToUpdate.getAssignedUserId())
+                .status(taskToUpdate.getStatus())
+                .createDateTime(taskToUpdate.getCreateDateTime())
+                .deadlineDateTime(taskToUpdate.getDeadlineDateTime())
+                .priority(taskToUpdate.getPriority())
+                .build();
+
+        tasksMap.put(taskId, createdTask);
+        return createdTask;
     }
 
     public void deleteTask(Long taskId) {
