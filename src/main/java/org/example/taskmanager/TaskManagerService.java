@@ -4,25 +4,14 @@ import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-
 import java.util.*;
-import java.util.concurrent.atomic.AtomicLong;
 
 @Slf4j
 @Service
-
+@RequiredArgsConstructor
 public class TaskManagerService {
 
-    private final Map<Long, Task> tasksMap;
-    private final AtomicLong idCounter;
-
     private final TaskRepository taskRepository;
-
-    public TaskManagerService(TaskRepository taskRepository) {
-        this.taskRepository = taskRepository;
-        tasksMap = new HashMap<>();
-        idCounter = new AtomicLong();
-    }
 
     public List<Task> findAllTasks() {
         List<TaskEntity> allTaskEntities = taskRepository.findAll();
@@ -51,8 +40,7 @@ public class TaskManagerService {
             throw new NoSuchElementException("TaskStatus must be empty, taskStatus" + taskToCreate.getStatus());
         }
 
-        var createdTask = Task.builder()
-                .taskId(idCounter.incrementAndGet())
+        var taskEntityToSave = TaskEntity.builder()
                 .creatorId(taskToCreate.getCreatorId())
                 .assignedUserId(taskToCreate.getAssignedUserId())
                 .status(TaskStatus.CREATED)
@@ -61,22 +49,20 @@ public class TaskManagerService {
                 .priority(taskToCreate.getPriority())
                 .build();
 
-        tasksMap.put(createdTask.getTaskId(), createdTask);
-        return createdTask;
+        var savedTaskEntity = taskRepository.save(taskEntityToSave);
+        return toDomainTask(savedTaskEntity);
     }
 
     public Task updateTask(Long taskId, Task taskToUpdate) {
-        if (!tasksMap.containsKey(taskId)) {
-            throw new NoSuchElementException("Not found task by id = " + taskId);
-        }
+        var taskEntity = taskRepository.findById(taskId)
+                .orElseThrow(() -> new EntityNotFoundException("Not found task by id = " + taskId));
 
-        if (taskToUpdate.getStatus().equals(TaskStatus.DONE)) {
+        if (taskEntity.getStatus() == (TaskStatus.DONE)) {
             throw new IllegalStateException("TaskStatus should not be DONE");
         }
 
-        var oldTask = tasksMap.get(taskId);
-        var createdTask = Task.builder()
-                .taskId(oldTask.getTaskId())
+        var createdTaskEntity = TaskEntity.builder()
+                .taskId(taskEntity.getTaskId())
                 .creatorId(taskToUpdate.getCreatorId())
                 .assignedUserId(taskToUpdate.getAssignedUserId())
                 .status(taskToUpdate.getStatus())
@@ -85,16 +71,16 @@ public class TaskManagerService {
                 .priority(taskToUpdate.getPriority())
                 .build();
 
-        tasksMap.put(taskId, createdTask);
-        return createdTask;
+        taskRepository.save(createdTaskEntity);
+        return toDomainTask(createdTaskEntity);
     }
 
     public void deleteTask(Long taskId) {
-        if (!tasksMap.containsKey(taskId)) {
-            throw new NoSuchElementException("Not found task by id = " + taskId);
+        if (!taskRepository.existsById(taskId)) {
+            throw new EntityNotFoundException("Not found task by id = " + taskId);
         }
 
-        tasksMap.remove(taskId);
+        taskRepository.deleteById(taskId);
     }
 
     private Task toDomainTask(TaskEntity taskEntity) {
